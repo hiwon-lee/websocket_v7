@@ -1,0 +1,126 @@
+<!-- chatting_for_client -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+</head>
+<body>
+	<div class="container border">
+		<div class="col-8 mx-auto">
+			<div class="row">
+				<!-- chatting-list -->
+				<div class="col-4 bg-light">
+					<div class="p-2 bg-secondary">
+						사용자 목록
+					</div>
+					<div class="p-2">
+						<ul id="divAllUser" class="list-group list-group-flush">
+							
+						</ul>	
+					</div>
+					
+				</div>
+				<!-- active-chatting -->
+				<div class="col-8 bg-warning">
+					<div class="p-2">이희원</div>
+					<div class="p-2">
+						<div id="divMsg" class="p-2">
+							chat
+						</div>
+
+						<div id="divPannel" class="row gap-1 bg-primary">
+
+								<input id="myname" type="text" placeholder="접속자명 입력" onkeypress="javascript:if(event.keyCode==13) {connect();return false;} return true;">
+							
+								<button class="btn" onclick="connect()">접속하기</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+<script>
+	let MY_USER_ID = ""; //나의 고유값이 담김(주민번호와 같은 ID)
+	let MY_NAME = "";
+	let websocket = null;
+
+	function connect() { //웹소켓에 연결
+		let my_user_id = $.trim($("#myname").val());
+		if(!my_user_id) { //id가myname인 객체의 값을 앞뒤 공백 제거해서 가져 온 값이 존재하지 않는 경우
+			alert("접속자명을 입력해 주세요");
+			return false;
+		}
+		
+		websocket = new WebSocket("ws://localhost:6969"); //클라이언트 용에서도 서버 용과 같은 포트로 열어 주어야 한다.
+		websocket.onmessage = function(e) { //서버로부터 메시지가 올 때, 이 이벤트가 실행
+			console.log(e);
+			let message = JSON.parse(e.data);  //server 쪽에 위치해 있는 data 변수에 들어가 있는 값 -> websocket.send()로 보내지는 것(문자열로 받으므로 json형태로 parse)
+
+			console.log(message);
+
+			switch (message.code) {
+				case "my_user_id" : //user_id가 전송됨
+					MY_USER_ID = message.msg;
+					sendMyName(my_user_id);
+					//alert("user_id 발송 : " + MY_USER_ID);
+					break;
+				case "chat_message" :
+					$('#divMsg').append(`
+						<div>
+							${message.sender_name} : ${message.msg}
+						</div>
+					`)
+					break;
+				case "all_users" : //전체 사용자를 받음
+					let ALL_WS = JSON.parse(message.msg);
+					
+					$('ul#divAllUser').html("");
+					ALL_WS.forEach(function(element, index) {
+						console.log(element);
+
+						$('ul#divAllUser').append(`
+							<li class="list-group-item">
+								${element.user_name}
+							</li>
+						`);
+
+					});
+
+			}
+			
+
+		}
+
+		function sendMyName(sending_user_name) {
+			MY_NAME = sending_user_name;
+			let data = {"code":"connect_name", "name":sending_user_name, "user_id" : MY_USER_ID};
+			websocket.send(JSON.stringify(data));
+
+			$("#divPannel").html(`<input type="text" id="txtMessage" value="" placeholder="보낼 메시지를 입력하세요" onkeypress="javascript:if(event.keyCode==13){sendMessage(); return false;}return true;"> <button style="font-size:;18px; background-color:black; color:white" onclick="sendMessage();">보내기</button>`);
+		}
+	}
+
+	function sendMessage() {
+		let message = $("#txtMessage").val();
+		message = $.trim(message);
+		if(!message) { //값이 비어있다면
+			alert("보낼 메시지를 입력해 주세요");
+			$("#textMessage").focus();
+			return false;
+		}
+
+		let data = {"code":"send_message", "name":MY_NAME, "user_id":MY_USER_ID, "msg":message};
+		websocket.send(JSON.stringify(data));
+		websocket.close();
+		
+	}
+</script>
+</body>
+</html>
